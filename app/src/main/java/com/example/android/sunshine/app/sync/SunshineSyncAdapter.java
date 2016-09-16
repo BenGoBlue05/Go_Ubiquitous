@@ -40,8 +40,6 @@ import com.example.android.sunshine.app.data.WeatherContract;
 import com.example.android.sunshine.app.muzei.WeatherMuzeiSource;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.ResultCallback;
-import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
@@ -437,11 +435,6 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements
             // now we work exclusively in UTC
             dayTime = new Time();
 
-            double todayDefaultValue = -1000d;
-
-            double todayHigh = todayDefaultValue;
-            double todayLow = todayDefaultValue;
-
             for (int i = 0; i < weatherArray.length(); i++) {
                 // These are the values that will be collected.
                 long dateTime;
@@ -480,9 +473,8 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements
                 high = temperatureObject.getDouble(OWM_MAX);
                 low = temperatureObject.getDouble(OWM_MIN);
 
-                if (i == 0) {
-                    todayHigh = high;
-                    todayLow = low;
+                if (i == 0){
+                    updateWear(high, low);
                 }
 
                 ContentValues weatherValues = new ContentValues();
@@ -515,7 +507,6 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements
 
                 updateWidgets();
                 updateMuzei();
-                updateWear(todayHigh, todayLow);
                 notifyWeather();
             }
             Log.d(LOG_TAG, "Sync Complete. " + cVVector.size() + " Inserted");
@@ -548,20 +539,12 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements
 
     private void updateWear(double high, double low) {
         PutDataMapRequest dataMap = PutDataMapRequest.create(WEAR_PATH);
-        dataMap.getDataMap().putDouble(HIGH_TEMP_KEY, high);
-        dataMap.getDataMap().putDouble(LOW_TEMP_KEY, low);
+        dataMap.getDataMap().putString(HIGH_TEMP_KEY, Utility.formatTemperature(getContext(), high));
+        dataMap.getDataMap().putString(LOW_TEMP_KEY, Utility.formatTemperature(getContext(), low));
         dataMap.getDataMap().putLong("time", new Date().getTime());
         PutDataRequest request = dataMap.asPutDataRequest();
         request.setUrgent();
-
-        Wearable.DataApi.putDataItem(mGoogleApiClient, request)
-                .setResultCallback(new ResultCallback<DataApi.DataItemResult>() {
-                    @Override
-                    public void onResult(@NonNull DataApi.DataItemResult dataItemResult) {
-                        Log.i(LOG_TAG, "SUCCESS: " + dataItemResult.getStatus()
-                                .isSuccess());
-                    }
-                });
+        Wearable.DataApi.putDataItem(mGoogleApiClient, request);
     }
 
     private void notifyWeather() {
