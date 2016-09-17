@@ -21,6 +21,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -39,6 +41,8 @@ import android.view.WindowInsets;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.wearable.Asset;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
@@ -47,6 +51,7 @@ import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.DataMapItem;
 import com.google.android.gms.wearable.Wearable;
 
+import java.io.InputStream;
 import java.lang.ref.WeakReference;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -108,6 +113,7 @@ public class WatchFaceService extends CanvasWatchFaceService {
         Paint mTextPaint;
         Paint mHighPaint;
         Paint mLowPaint;
+        Paint mIconPaint;
         boolean mAmbient;
         Time mTime;
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
@@ -135,9 +141,11 @@ public class WatchFaceService extends CanvasWatchFaceService {
         final String WEAR_PATH = "/wear";
         final String HIGH_TEMP_KEY = "high";
         final String LOW_TEMP_KEY = "low";
+        private static final String ICON_ASSET_KEY = "key";
 
-        String mHighTemp = NOT_AVAILABLE;
-        String mLowTemp = NOT_AVAILABLE;
+        String mHighTemp;
+        String mLowTemp;
+        Bitmap mIcon;
 
 
         @Override
@@ -172,7 +180,13 @@ public class WatchFaceService extends CanvasWatchFaceService {
             mLowPaint = new Paint();
             mLowPaint = createTextPaint(resources.getColor(R.color.digital_text));
 
+            mIconPaint = new Paint();
+
             mTime = new Time();
+
+            mHighTemp = NOT_AVAILABLE;
+            mLowTemp = NOT_AVAILABLE;
+            mIcon = null;
         }
 
         @Override
@@ -308,6 +322,8 @@ public class WatchFaceService extends CanvasWatchFaceService {
         @Override
         public void onDraw(Canvas canvas, Rect bounds) {
             // Draw the background.
+
+
             if (isInAmbientMode()) {
                 canvas.drawColor(Color.BLACK);
             } else {
@@ -320,9 +336,14 @@ public class WatchFaceService extends CanvasWatchFaceService {
                     ? String.format("%d:%02d", mTime.hour, mTime.minute)
                     : String.format("%d:%02d:%02d", mTime.hour, mTime.minute, mTime.second);
             canvas.drawText(text, mXOffset, mYOffset, mTextPaint);
+
             if (!mHighTemp.equals(NOT_AVAILABLE) && !mLowTemp.equals(NOT_AVAILABLE)){
                 canvas.drawText(mHighTemp, mXOffset, mYOffset - 40, mHighPaint);
                 canvas.drawText(mLowTemp, mXOffset, mYOffset + 40, mLowPaint);
+            }
+
+            if (mIcon!=null && !isInAmbientMode()) {
+                canvas.drawBitmap(mIcon, mXOffset, mYOffset, mIconPaint);
             }
 
         }
@@ -373,6 +394,7 @@ public class WatchFaceService extends CanvasWatchFaceService {
         @Override
         public void onDataChanged(DataEventBuffer dataEventBuffer) {
             Log.i(LOG_TAG, "ON_DATA_CHANGED");
+            Log.i(LOG_TAG, "UPDATED");
             for (DataEvent event: dataEventBuffer){
                 if (event.getType() == DataEvent.TYPE_CHANGED){
                     DataItem dataItem = event.getDataItem();
@@ -380,12 +402,32 @@ public class WatchFaceService extends CanvasWatchFaceService {
                         DataMap dataMap = DataMapItem.fromDataItem(dataItem).getDataMap();
                         mHighTemp = dataMap.getString(HIGH_TEMP_KEY);
                         mLowTemp = dataMap.getString(LOW_TEMP_KEY);
+                        loadBitmapFromAsset(dataMap.getAsset(ICON_ASSET_KEY));
 
                         Log.i(LOG_TAG, "HIGH TEMP: " + mHighTemp);
                         Log.i(LOG_TAG, "LOW TEMP: " + mLowTemp);
                     }
                 }
             }
+        }
+
+        public void loadBitmapFromAsset(Asset asset) {
+            if (asset == null) {
+                throw new IllegalArgumentException("NULL ASSET");
+            }
+
+            Wearable.DataApi.getFdForAsset(mGoogleApiClient, asset).setResultCallback(
+                    new ResultCallback<DataApi.GetFdForAssetResult>() {
+                @Override
+                public void onResult(@NonNull DataApi.GetFdForAssetResult getFdForAssetResult) {
+                    InputStream is = getFdForAssetResult.getInputStream();
+                    if (is != null){
+                        Bitmap icon = BitmapFactory.decodeStream(is);
+                        mIcon = Bitmap.createScaledBitmap(icon, 40, 40, false);
+                    }
+                }
+            });
+
         }
 
         @Override

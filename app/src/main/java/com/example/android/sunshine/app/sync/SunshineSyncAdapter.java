@@ -40,6 +40,7 @@ import com.example.android.sunshine.app.data.WeatherContract;
 import com.example.android.sunshine.app.muzei.WeatherMuzeiSource;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.wearable.Asset;
 import com.google.android.gms.wearable.PutDataMapRequest;
 import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
@@ -49,6 +50,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -56,7 +58,6 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.Date;
 import java.util.Vector;
 import java.util.concurrent.ExecutionException;
 
@@ -90,6 +91,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements
     private static final String WEAR_PATH = "/wear";
     private static final String HIGH_TEMP_KEY = "high";
     private static final String LOW_TEMP_KEY = "low";
+    private static final String ICON_ASSET_KEY = "key";
     public final String LOG_TAG = SunshineSyncAdapter.class.getSimpleName();
     GoogleApiClient mGoogleApiClient;
 
@@ -474,7 +476,7 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements
                 low = temperatureObject.getDouble(OWM_MIN);
 
                 if (i == 0){
-                    updateWear(high, low);
+                    updateWear(high, low, weatherId);
                 }
 
                 ContentValues weatherValues = new ContentValues();
@@ -537,15 +539,25 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter implements
         }
     }
 
-    private void updateWear(double high, double low) {
+    private void updateWear(double high, double low, int weatherId) {
+        Bitmap icon = BitmapFactory.decodeResource(getContext().getResources(),
+                Utility.getIconResourceForWeatherCondition(weatherId));
+        Asset asset = createAssetFromBitmap(icon);
         PutDataMapRequest dataMap = PutDataMapRequest.create(WEAR_PATH);
         dataMap.getDataMap().putString(HIGH_TEMP_KEY, Utility.formatTemperature(getContext(), high));
         dataMap.getDataMap().putString(LOW_TEMP_KEY, Utility.formatTemperature(getContext(), low));
-        dataMap.getDataMap().putLong("time", new Date().getTime());
+        dataMap.getDataMap().putAsset(ICON_ASSET_KEY, asset);
         PutDataRequest request = dataMap.asPutDataRequest();
         request.setUrgent();
         Wearable.DataApi.putDataItem(mGoogleApiClient, request);
     }
+
+    private static Asset createAssetFromBitmap(Bitmap bitmap) {
+        final ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, byteStream);
+        return Asset.createFromBytes(byteStream.toByteArray());
+    }
+
 
     private void notifyWeather() {
         Context context = getContext();
