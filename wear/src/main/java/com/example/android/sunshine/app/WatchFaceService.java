@@ -53,6 +53,9 @@ import com.google.android.gms.wearable.Wearable;
 
 import java.io.InputStream;
 import java.lang.ref.WeakReference;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -114,6 +117,7 @@ public class WatchFaceService extends CanvasWatchFaceService {
         Paint mHighPaint;
         Paint mLowPaint;
         Paint mIconPaint;
+        Paint mDatePaint;
         boolean mAmbient;
         Time mTime;
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
@@ -146,6 +150,7 @@ public class WatchFaceService extends CanvasWatchFaceService {
         String mHighTemp;
         String mLowTemp;
         Bitmap mIcon;
+        String mDate;
 
 
         @Override
@@ -180,6 +185,9 @@ public class WatchFaceService extends CanvasWatchFaceService {
             mLowPaint = new Paint();
             mLowPaint = createTextPaint(resources.getColor(R.color.digital_text));
 
+            mDatePaint = new Paint();
+            mLowPaint = createTextPaint(resources.getColor(R.color.digital_text));
+
             mIconPaint = new Paint();
 
             mTime = new Time();
@@ -187,6 +195,7 @@ public class WatchFaceService extends CanvasWatchFaceService {
             mHighTemp = NOT_AVAILABLE;
             mLowTemp = NOT_AVAILABLE;
             mIcon = null;
+            mDate = getFormattedDate(System.currentTimeMillis());
         }
 
         @Override
@@ -262,6 +271,8 @@ public class WatchFaceService extends CanvasWatchFaceService {
 
             mHighPaint.setTextSize(textSize);
             mLowPaint.setTextSize(textSize);
+            mDatePaint.setTextSize(textSize);
+
         }
 
         @Override
@@ -286,6 +297,7 @@ public class WatchFaceService extends CanvasWatchFaceService {
                     mTextPaint.setAntiAlias(!inAmbientMode);
                     mHighPaint.setAntiAlias(!inAmbientMode);
                     mLowPaint.setAntiAlias(!inAmbientMode);
+                    mDatePaint.setAntiAlias(!inAmbientMode);
                 }
                 invalidate();
             }
@@ -332,10 +344,14 @@ public class WatchFaceService extends CanvasWatchFaceService {
 
             // Draw H:MM in ambient mode or H:MM:SS in interactive mode.
             mTime.setToNow();
-            String text = mAmbient
-                    ? String.format("%d:%02d", mTime.hour, mTime.minute)
-                    : String.format("%d:%02d:%02d", mTime.hour, mTime.minute, mTime.second);
+            String text = String.format(Locale.getDefault(), "%d:%02d", mTime.hour, mTime.minute);
+
+            Log.i(LOG_TAG, "SECONDS REMOVED");
+
             canvas.drawText(text, mXOffset, mYOffset, mTextPaint);
+
+            canvas.drawText(mDate, mXOffset + 40, mYOffset + 40, mTextPaint);
+            Log.i(LOG_TAG, "DATE ADDED");
 
             if (!mHighTemp.equals(NOT_AVAILABLE) && !mLowTemp.equals(NOT_AVAILABLE)){
                 canvas.drawText(mHighTemp, mXOffset, mYOffset - 40, mHighPaint);
@@ -345,6 +361,12 @@ public class WatchFaceService extends CanvasWatchFaceService {
             if (mIcon!=null && !isInAmbientMode()) {
                 canvas.drawBitmap(mIcon, mXOffset, mYOffset, mIconPaint);
             }
+
+        }
+
+        public String getFormattedDate(long millis){
+            SimpleDateFormat formatter = new SimpleDateFormat("EEE MMM FF", Locale.getDefault());
+            return formatter.format(new Date(millis));
 
         }
 
