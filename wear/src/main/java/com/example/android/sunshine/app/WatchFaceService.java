@@ -134,6 +134,9 @@ public class WatchFaceService extends CanvasWatchFaceService {
 
         final String NOT_AVAILABLE = "na";
 
+        float mCenterX;
+        float mCenterY;
+
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
          * disable anti-aliasing in ambient mode.
@@ -186,7 +189,7 @@ public class WatchFaceService extends CanvasWatchFaceService {
             mLowPaint = createTextPaint(resources.getColor(R.color.digital_text));
 
             mDatePaint = new Paint();
-            mLowPaint = createTextPaint(resources.getColor(R.color.digital_text));
+            mDatePaint = createTextPaint(resources.getColor(R.color.digital_text));
 
             mIconPaint = new Paint();
 
@@ -255,6 +258,8 @@ public class WatchFaceService extends CanvasWatchFaceService {
             WatchFaceService.this.unregisterReceiver(mTimeZoneReceiver);
         }
 
+
+
         @Override
         public void onApplyWindowInsets(WindowInsets insets) {
             super.onApplyWindowInsets(insets);
@@ -269,9 +274,9 @@ public class WatchFaceService extends CanvasWatchFaceService {
 
             mTextPaint.setTextSize(textSize);
 
-            mHighPaint.setTextSize(textSize);
-            mLowPaint.setTextSize(textSize);
-            mDatePaint.setTextSize(textSize);
+            mHighPaint.setTextSize(resources.getDimension(R.dimen.high_text_size));
+            mLowPaint.setTextSize(resources.getDimension(R.dimen.low_text_size));
+            mDatePaint.setTextSize(resources.getDimension(R.dimen.date_text_size));
 
         }
 
@@ -348,21 +353,27 @@ public class WatchFaceService extends CanvasWatchFaceService {
 
             Log.i(LOG_TAG, "SECONDS REMOVED");
 
-            canvas.drawText(text, mXOffset, mYOffset, mTextPaint);
+            float centerX = bounds.centerX();
+            float centerY = bounds.centerY();
 
-            canvas.drawText(mDate, mXOffset + 40, mYOffset + 40, mTextPaint);
+
+
+            canvas.drawText(text, centerX - mTextPaint.measureText(text)/2, centerY, mTextPaint);
+
+            canvas.drawText(mDate, centerX - mDatePaint.measureText(mDate)/2, centerY + 40, mDatePaint);
             Log.i(LOG_TAG, "DATE ADDED");
 
             if (!mHighTemp.equals(NOT_AVAILABLE) && !mLowTemp.equals(NOT_AVAILABLE)){
-                canvas.drawText(mHighTemp, mXOffset, mYOffset - 40, mHighPaint);
-                canvas.drawText(mLowTemp, mXOffset, mYOffset + 40, mLowPaint);
+                canvas.drawText(mHighTemp, centerX - mHighPaint.measureText(mHighTemp) - 8, centerY + 80, mHighPaint);
+                canvas.drawText(mLowTemp, centerX + 8, centerY + 80, mLowPaint);
             }
 
             if (mIcon!=null && !isInAmbientMode()) {
-                canvas.drawBitmap(mIcon, mXOffset, mYOffset, mIconPaint);
+                canvas.drawBitmap(mIcon, centerX - mIcon.getWidth()/2, centerY - 100, mIconPaint);
             }
 
         }
+
 
         public String getFormattedDate(long millis){
             SimpleDateFormat formatter = new SimpleDateFormat("EEE MMM FF", Locale.getDefault());
